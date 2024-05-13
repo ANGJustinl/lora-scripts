@@ -11,21 +11,13 @@ from mikazuki.log import log
 
 parser = argparse.ArgumentParser(description="GUI for stable diffusion training")
 parser.add_argument("--host", type=str, default="127.0.0.1")
-parser.add_argument("--port", type=int, default=28000, help="Port to run the server on")
+parser.add_argument("--port", type=int, default=6006, help="Port to run the server on")
 parser.add_argument("--listen", action="store_true")
 parser.add_argument("--skip-prepare-environment", action="store_true")
 parser.add_argument("--disable-tensorboard", action="store_true")
 parser.add_argument("--disable-tageditor", action="store_true")
-parser.add_argument("--tensorboard-host", type=str, default="127.0.0.1", help="Port to run the tensorboard")
-parser.add_argument("--tensorboard-port", type=int, default=6006, help="Port to run the tensorboard")
 parser.add_argument("--localization", type=str)
 parser.add_argument("--dev", action="store_true")
-
-
-def run_tensorboard():
-    log.info("Starting tensorboard...")
-    subprocess.Popen([sys.executable, "-m", "tensorboard.main", "--logdir", "logs",
-                     "--host", args.tensorboard_host, "--port", str(args.tensorboard_port)])
 
 
 def run_tag_editor():
@@ -54,8 +46,6 @@ def launch():
 
     os.environ["MIKAZUKI_HOST"] = args.host
     os.environ["MIKAZUKI_PORT"] = str(args.port)
-    os.environ["MIKAZUKI_TENSORBOARD_HOST"] = args.tensorboard_host
-    os.environ["MIKAZUKI_TENSORBOARD_PORT"] = str(args.tensorboard_port)
     os.environ["MIKAZUKI_DEV"] = "1" if args.dev else "0"
 
     if args.listen:
@@ -64,9 +54,6 @@ def launch():
 
     if not args.disable_tageditor:
         run_tag_editor()
-
-    if not args.disable_tensorboard:
-        run_tensorboard()
 
     import uvicorn
     log.info(f"Server started at http://{args.host}:{args.port}")
