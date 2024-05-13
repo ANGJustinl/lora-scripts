@@ -31,101 +31,47 @@ _✨ Enjoy Stable Diffusion Train！ ✨_
   <a href="https://github.com/Akegarasu/lora-scripts/blob/main/README-zh.md">中文README</a>
 </p>
 
-LoRA-scripts (a.k.a SD-Trainer)
+# 昂-修正v0.1
 
-LoRA & Dreambooth training GUI & scripts preset & one key training environment for [kohya-ss/sd-scripts](https://github.com/kohya-ss/sd-scripts.git)
+[ANGJustinl/lora-scripts at autodl (github.com)](https://github.com/ANGJustinl/lora-scripts/tree/autodl)
 
-## ✨NEW: Train WebUI
+#### 与原版不同特性
 
-The **REAL** Stable Diffusion Training Studio. Everything in one WebUI.
+* 适配autodl自带 Tenserboard, 请打开 Autopanel 查看 ´[https://www.autodl.com/docs/tensorboard/´](https://www.autodl.com/docs/tensorboard/%C2%B4)
+* 配置了clash-for-linux, 以便自行进行学术加速
+* 预装 git-lfs 并启用
+* 可自行修改 ´lora-scripts/sdxl_train_util.py´ 中clip模型路径, 规避网络错误
 
-Follow the installation guide below to install the GUI, then run `run_gui.ps1`(windows) or `run_gui.sh`(linux) to start the GUI.
+> 20行 TOKENIZER1_PATH = "openai/clip-vit-large-patch14" # 将这里换成你下好的clip路径 [https://ai.gitee.com/hf-models/openai/clip-vit-large-patch14](https://ai.gitee.com/hf-models/openai/clip-vit-large-patch14)
 
-![image](https://github.com/Akegarasu/lora-scripts/assets/36563862/d3fcf5ad-fb8f-4e1d-81f9-c903376c19c6)
+> 21行 TOKENIZER2_PATH = "laion/CLIP-ViT-bigG-14-laion2B-39B-b160k" # [https://ai.gitee.com/hf-models/laion/CLIP-ViT-bigG-14-laion2B-39B-b160k/blob/main/README.md](https://ai.gitee.com/hf-models/laion/CLIP-ViT-bigG-14-laion2B-39B-b160k/blob/main/README.md)
 
-| Tensorboard | WD 1.4 Tagger | Tag Editor |
-| ------------ | ------------ | ------------ |
-| ![image](https://github.com/Akegarasu/lora-scripts/assets/36563862/b2ac5c36-3edf-43a6-9719-cb00b757fc76) | ![image](https://github.com/Akegarasu/lora-scripts/assets/36563862/9504fad1-7d77-46a7-a68f-91fbbdbc7407) | ![image](https://github.com/Akegarasu/lora-scripts/assets/36563862/4597917b-caa8-4e90-b950-8b01738996f2) |
+#### 沿用的原版特性
+
+* 全新：训练界面正式更新，使用 bash run_gui.sh 运行。
+* 内置 SDXL 模型，以及修复的 VAE。训练时如果遇到报错请填写覆盖 VAE 的参数，路径 `./sd-models/vae/sdxl_vae.safetensors`
+* 升级至 SD-Trainer v1.8.3
+* Tag 编辑器
+
+# 镜像使用
 
 
-# Usage
+### 1.推荐：使用GUI训练
 
-### Required Dependencies
+#### https://www.bilibili.com/read/cv24050162/
 
-Python 3.10 and Git
+### 2.旧版训练 LoRA
 
-### Clone repo with submodules
+打开镜像后 应已经处于 lora-scripts 项目目录。无需安装任何依赖，直接打开
+train.sh 进行编辑参数，上传图片至 train 文件夹内。请注意图片文件夹的命名方式。准备好参数和数据后可以开始训练。
+打开终端，运行 bash train.sh 即可开始训练。
 
-```sh
-git clone --recurse-submodules https://github.com/Akegarasu/lora-scripts
-```
+注意
+本镜像所使用的 xformers 基于 sm86 架构编译，本身我是在北京区的3090显卡上制作的这个镜像，推荐你也直接使用3090显卡。
 
-## ✨ SD-Trainer GUI
+也可以尝试使用这些显卡：Tesla GA10x , RTX Ampere – RTX 3080, GA102 – RTX 3090, RTX A6000, RTX A40
 
-### Windows
+其他显卡不做正常运行保障。如果你用其他显卡，请自行重新安装xformers。
 
-#### Installation
-
-Run `install.ps1` will automaticilly create a venv for you and install necessary deps. 
-If you are in China mainland, please use `install-cn.ps1`
-
-#### Train
-
-run `run_gui.ps1`, then program will open [http://127.0.0.1:28000](http://127.0.0.1:28000) automanticlly
-
-### Linux
-
-#### Installation
-
-Run `install.bash` will create a venv and install necessary deps. 
-
-#### Train
-
-run `bash run_gui.bash`, then program will open [http://127.0.0.1:28000](http://127.0.0.1:28000) automanticlly
-
-## Legacy training through run script manually
-
-### Windows
-
-#### Installation
-
-Run `install.ps1` will automaticilly create a venv for you and install necessary deps.
-
-#### Train
-
-Edit `train.ps1`, and run it.
-
-### Linux
-
-#### Installation
-
-Run `install.bash` will create a venv and install necessary deps.
-
-#### Train
-
-Training script `train.sh` **will not** activate venv for you. You should activate venv first.
-
-```sh
-source venv/bin/activate
-```
-
-Edit `train.sh`, and run it.
-
-#### TensorBoard
-
-Run `tensorboard.ps1` will start TensorBoard at http://localhost:6006/
-
-## Program arguments
-
-| Parameter Name                | Type  | Default Value | Description                                      |
-|-------------------------------|-------|---------------|--------------------------------------------------|
-| `--host`                      | str   | "127.0.0.1"   | Hostname for the server                          |
-| `--port`                      | int   | 28000         | Port to run the server                           |
-| `--listen`                    | bool  | false         | Enable listening mode for the server             |
-| `--skip-prepare-environment`  | bool  | false         | Skip the environment preparation step            |
-| `--disable-tensorboard`       | bool  | false         | Disable TensorBoard                              |
-| `--disable-tageditor`         | bool  | false         | Disable tag editor                               |
-| `--tensorboard-host`          | str   | "127.0.0.1"   | Host to run TensorBoard                          |
-| `--tensorboard-port`          | int   | 6006          | Port to run TensorBoard                          |
-| `--localization`              | str   |               | Localization settings for the interface          |
-| `--dev`                       | bool  | false         | Developer mode to disale some checks             |
+训练数据监控
+默认输出日志到 /root/tf-logs 文件夹
