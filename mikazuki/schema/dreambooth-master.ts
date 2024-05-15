@@ -154,7 +154,7 @@ Schema.intersect([
             log_with: Schema.union(["tensorboard", "wandb"]).default("tensorboard").description("日志模块"),
             log_prefix: Schema.string().description("日志前缀"),
             log_tracker_name: Schema.string().description("日志追踪器名称"),
-            logging_dir: Schema.string().default("/root/tf-logs").description("日志保存文件夹"),
+            logging_dir: Schema.string().default("/home/tom/tensorboard_log").description("日志保存文件夹"),
         }).description("日志设置"),
 
         Schema.union([
