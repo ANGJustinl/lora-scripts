@@ -31,13 +31,12 @@ _✨ Enjoy Stable Diffusion Train！ ✨_
   <a href="https://github.com/Akegarasu/lora-scripts/blob/main/README-zh.md">中文README</a>
 </p>
 
-# 昂-修正v0.1
+# 昂-修正v0.1 - casdao 分支
 
-[ANGJustinl/lora-scripts at autodl (github.com)](https://github.com/ANGJustinl/lora-scripts/tree/autodl)
 
 #### 与原版不同特性
 
-* 适配autodl自带 Tenserboard, 请打开 Autopanel 查看 ´[https://www.autodl.com/docs/tensorboard/´](https://www.autodl.com/docs/tensorboard/%C2%B4)
+* 适配autodl自带 Tenserboard, 请打开 容器实例 页面的 tenserboard 查看
 * 配置了clash-for-linux, 以便自行进行学术加速
 * 预装 git-lfs 并启用
 * 可自行修改 ´lora-scripts/sdxl_train_util.py´ 中clip模型路径, 规避网络错误
