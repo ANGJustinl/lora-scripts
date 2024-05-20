@@ -33,7 +33,7 @@ _✨ Enjoy Stable Diffusion Train！ ✨_
 
 # 昂-修正v0.1 - casdao 分支
 
-## https://console.casdao.com:9001/#/s-login?refer=1413a7dfa0f77264fe6549b42d078f21dee09629188af2ae357b67eab0728c38
+<a href="https://console.casdao.com:9001/#/s-login?refer=1413a7dfa0f77264fe6549b42d078f21dee09629188af2ae357b67eab0728c38">点此处查看casdao</a> 
 #### 与原版不同特性
 
 * 适配autodl自带 Tenserboard, 请打开 容器实例 页面的 tenserboard 查看
