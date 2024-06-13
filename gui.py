@@ -4,9 +4,9 @@ import os
 import platform
 import subprocess
 import sys
-import webbrowser
 
-from mikazuki.launch_utils import prepare_environment, base_dir_path
+from mikazuki.launch_utils import (base_dir_path, catch_exception,
+                                   prepare_environment)
 from mikazuki.log import log
 
 parser = argparse.ArgumentParser(description="GUI for stable diffusion training")
@@ -20,6 +20,7 @@ parser.add_argument("--localization", type=str)
 parser.add_argument("--dev", action="store_true")
 
 
+@catch_exception
 def run_tag_editor():
     log.info("Starting tageditor...")
     cmd = [
@@ -31,8 +32,10 @@ def run_tag_editor():
     ]
     if args.localization:
         cmd.extend(["--localization", args.localization])
-    elif locale.getdefaultlocale()[0].startswith("zh"):
-        cmd.extend(["--localization", "zh-Hans"])
+    else:
+        l = locale.getdefaultlocale()[0]
+        if l and l.startswith("zh"):
+            cmd.extend(["--localization", "zh-Hans"])
     subprocess.Popen(cmd)
 
 
