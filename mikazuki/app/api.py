@@ -1,16 +1,18 @@
 import asyncio
+import hashlib
 import json
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 
 import toml
-import hashlib
 from fastapi import APIRouter, BackgroundTasks, Request
 from starlette.requests import Request
 
 import mikazuki.process as process
 from mikazuki import launch_utils
+from mikazuki.app.config import app_config
 from mikazuki.app.models import (APIResponse, APIResponseFail,
                                  APIResponseSuccess, TaggerInterrogateRequest)
 from mikazuki.log import log
@@ -32,12 +34,18 @@ avaliable_scripts = [
 ]
 
 avaliable_schemas = []
+avaliable_presets = []
 
 trainer_mapping = {
-    "sd-lora": "./sd-scripts/train_network.py",
-    "sdxl-lora": "./sd-scripts/sdxl_train_network.py",
-    "sd-dreambooth": "./sd-scripts/train_db.py",
-    "sdxl-finetune": "./sd-scripts/sdxl_train.py",
+    "sd-lora": "./scripts/stable/train_network.py",
+    "sdxl-lora": "./scripts/stable/sdxl_train_network.py",
+
+    "sd-dreambooth": "./scripts/stable/train_db.py",
+    "sdxl-finetune": "./scripts/stable/sdxl_train.py",
+
+    "sd3-lora": "./scripts/dev/sd3_train_network.py",
+    "flux-lora": "./scripts/dev/flux_train_network.py",
+    "flux-finetune": "./scripts/dev/flux_train.py",
 }
 
 
@@ -54,10 +62,22 @@ async def load_schemas():
         with open(os.path.join(schema_dir, schema_name), encoding="utf-8") as f:
             content = f.read()
             avaliable_schemas.append({
-                "name": schema_name.strip(".ts"),
+                "name": schema_name.rstrip(".ts"),
                 "schema": content,
                 "hash": lambda_hash(content)
             })
+
+
+async def load_presets():
+    avaliable_presets.clear()
+
+    preset_dir = os.path.join(os.getcwd(), "config", "presets")
+    presets = os.listdir(preset_dir)
+
+    for preset_name in presets:
+        with open(os.path.join(preset_dir, preset_name), encoding="utf-8") as f:
+            content = f.read()
+            avaliable_presets.append(toml.loads(content))
 
 
 @router.post("/run")
@@ -65,7 +85,9 @@ async def create_toml_file(request: Request):
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     toml_file = os.path.join(os.getcwd(), f"config", "autosave", f"{timestamp}.toml")
     json_data = await request.body()
+
     config: dict = json.loads(json_data.decode("utf-8"))
+    train_utils.fix_config_types(config)
 
     gpu_ids = config.pop("gpu_ids", None)
 
@@ -77,7 +99,7 @@ async def create_toml_file(request: Request):
         if not train_utils.validate_data_dir(config["train_data_dir"]):
             return APIResponseFail(message="训练数据集路径不存在或没有图片，请检查目录。")
 
-    validated, message = train_utils.validate_model(config["pretrained_model_name_or_path"])
+    validated, message = train_utils.validate_model(config["pretrained_model_name_or_path"], model_train_type)
     if not validated:
         return APIResponseFail(message=message)
 
@@ -114,7 +136,7 @@ async def run_script(request: Request, background_tasks: BackgroundTasks):
                 value = f'"{v}"'
             result.append(value)
     script_args = " ".join(result)
-    script_path = Path(os.getcwd()) / "sd-scripts" / script_name
+    script_path = Path(os.getcwd()) / "scripts" / script_name
     cmd = f"{launch_utils.python_bin} {script_path} {script_args}"
     background_tasks.add_task(launch_utils.run, cmd)
     return APIResponseSuccess()
@@ -150,10 +172,10 @@ async def run_interrogate(req: TaggerInterrogateRequest, background_tasks: Backg
 @router.get("/pick_file")
 async def pick_file(picker_type: str):
     if picker_type == "folder":
-        coro = asyncio.to_thread(open_directory_selector, os.getcwd())
-    elif picker_type == "modelfile":
+        coro = asyncio.to_thread(open_directory_selector, "")
+    elif picker_type == "model-file":
         file_types = [("checkpoints", "*.safetensors;*.ckpt;*.pt"), ("all files", "*.*")]
-        coro = asyncio.to_thread(open_file_selector, os.getcwd(), "Select file", file_types)
+        coro = asyncio.to_thread(open_file_selector, "", "Select file", file_types)
 
     result = await coro
     if result == "":
@@ -161,6 +183,68 @@ async def pick_file(picker_type: str):
 
     return APIResponseSuccess(data={
         "path": result
+    })
+
+
+@router.get("/get_files")
+async def get_files(pick_type) -> APIResponse:
+    pick_preset = {
+        "model-file": {
+            "type": "file",
+            "path": "./sd-models",
+            "filter": "(.safetensors|.ckpt|.pt)"
+        },
+        "model-saved-file": {
+            "type": "file",
+            "path": "./output",
+            "filter": "(.safetensors|.ckpt|.pt)"
+        },
+        "train-dir": {
+            "type": "folder",
+            "path": "./train",
+            "filter": None
+        },
+    }
+
+    folder_blacklist = [".ipynb_checkpoints", ".DS_Store"]
+
+    def list_path_or_files(preset_info):
+        path = Path(preset_info["path"])
+        file_type = preset_info["type"]
+        regex_filter = preset_info["filter"]
+        result_list = []
+
+        if file_type == "file":
+            if regex_filter:
+                pattern = re.compile(regex_filter)
+                files = [f for f in path.glob("**/*") if f.is_file() and pattern.search(f.name)]
+            else:
+                files = [f for f in path.glob("**/*") if f.is_file()]
+            for file in files:
+                result_list.append({
+                    "path": str(file.resolve().absolute()).replace("\\", "/"),
+                    "name": file.name,
+                    "size": f"{round(file.stat().st_size / (1024**3),2)} GB"
+                })
+        elif file_type == "folder":
+            folders = [f for f in path.iterdir() if f.is_dir()]
+            for folder in folders:
+                if folder.name in folder_blacklist:
+                    continue
+                result_list.append({
+                    "path": str(folder.resolve().absolute()).replace("\\", "/"),
+                    "name": folder.name,
+                    "size": 0
+                })
+
+        return result_list
+
+    if pick_type not in pick_preset:
+        return APIResponseFail(message="Invalid request")
+
+    dirs = list_path_or_files(pick_preset[pick_type])
+    return APIResponseSuccess(data={
+        "files": dirs
     })
 
 
@@ -209,3 +293,20 @@ async def get_all_schemas() -> APIResponse:
     return APIResponseSuccess(data={
         "schemas": avaliable_schemas
     })
+
+
+@router.get("/presets")
+async def get_presets() -> APIResponse:
+    if os.environ.get("MIKAZUKI_SCHEMA_HOT_RELOAD", "0") == "1":
+        log.info("Hot reloading presets")
+        await load_presets()
+
+    return APIResponseSuccess(data={
+        "presets": avaliable_presets
+    })
+
+
+@router.get("/config/saved_params")
+async def get_saved_params() -> APIResponse:
+    saved_params = app_config["saved_params"]
+    return APIResponseSuccess(data=saved_params)

@@ -11,7 +11,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 
-from mikazuki.app.api import load_schemas
+from mikazuki.app.config import app_config
+from mikazuki.app.api import load_schemas, load_presets
 from mikazuki.app.api import router as api_router
 # from mikazuki.app.ipc import router as ipc_router
 from mikazuki.app.proxy import router as proxy_router
@@ -33,8 +34,12 @@ class SPAStaticFiles(StaticFiles):
 
 
 async def app_startup():
-    await asyncio.to_thread(check_torch_gpu)
+    app_config.load_config()
+
     await load_schemas()
+    await load_presets()
+    await asyncio.to_thread(check_torch_gpu)
+
     if sys.platform == "win32" and os.environ.get("MIKAZUKI_DEV", "0") != "1":
         webbrowser.open(f'http://{os.environ["MIKAZUKI_HOST"]}:{os.environ["MIKAZUKI_PORT"]}')
 
@@ -78,5 +83,9 @@ app.include_router(api_router, prefix="/api")
 async def index():
     return FileResponse("./frontend/dist/index.html")
 
+
+@app.get("/favicon.ico", response_class=FileResponse)
+async def favicon():
+    return FileResponse("assets/favicon.ico")
 
 app.mount("/", SPAStaticFiles(directory="frontend/dist", html=True), name="static")

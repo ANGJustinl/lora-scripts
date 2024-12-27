@@ -7,6 +7,8 @@ __pycache__
 output/*
 !output/.keep
 
+assets/config.json
+
 py310
 python
 git
@@ -17,6 +19,8 @@ logs/*
 sd-models/*
 toml/autosave/*
 config/autosave/*
+config/presets/test*.toml
+
 !sd-models/put stable diffusion model here.txt
 !logs/.keep
 

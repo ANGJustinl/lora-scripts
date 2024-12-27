@@ -7,10 +7,11 @@ from typing import Optional
 from mikazuki.app.models import APIResponse
 from mikazuki.log import log
 from mikazuki.tasks import tm
+from mikazuki.launch_utils import base_dir_path
 
 
 def run_train(toml_path: str,
-              trainer_file: str = "./sd-scripts/train_network.py",
+              trainer_file: str = "./scripts/train_network.py",
               gpu_ids: Optional[list] = None,
               cpu_threads: Optional[int] = 2):
     log.info(f"Training started with config file / 训练开始，使用配置文件: {toml_path}")
@@ -25,6 +26,7 @@ def run_train(toml_path: str,
     customize_env = os.environ.copy()
     customize_env["ACCELERATE_DISABLE_RICH"] = "1"
     customize_env["PYTHONUNBUFFERED"] = "1"
+    customize_env["PYTHONWARNINGS"] = "ignore::FutureWarning,ignore::UserWarning"
 
     if gpu_ids:
         customize_env["CUDA_VISIBLE_DEVICES"] = ",".join(gpu_ids)
@@ -32,6 +34,9 @@ def run_train(toml_path: str,
 
         if len(gpu_ids) > 1:
             args[3:3] = ["--multi_gpu", "--num_processes", str(len(gpu_ids))]
+            if sys.platform == "win32":
+                customize_env["USE_LIBUV"] = "0"
+                args[3:3] = ["--rdzv_backend", "c10d"]
 
     if not (task := tm.create_task(args, customize_env)):
         return APIResponse(status="error", message="Failed to create task / 无法创建训练任务")

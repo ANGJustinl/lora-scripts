@@ -2,9 +2,9 @@ Schema.intersect([
     Schema.intersect([
         Schema.object({
             model_train_type: Schema.union(["sd-dreambooth", "sdxl-finetune"]).default("sd-dreambooth").description("训练种类"),
-            pretrained_model_name_or_path: Schema.string().role("filepicker").default("./sd-models/model.safetensors").description("底模文件路径"),
-            resume: Schema.string().role("filepicker").description("从某个 `save_state` 保存的中断状态继续训练，填写文件路径"),
-            vae: Schema.string().role("filepicker").description("(可选) VAE 模型文件路径，使用外置 VAE 文件覆盖模型内本身的"),
+            pretrained_model_name_or_path: Schema.string().role("filepicker", { type: "model-file" }).default("./sd-models/model.safetensors").description("底模文件路径"),
+            resume: Schema.string().role("filepicker", { type: "folder" }).description("从某个 `save_state` 保存的中断状态继续训练，填写文件路径"),
+            vae: Schema.string().role("filepicker", { type: "model-file" }).description("(可选) VAE 模型文件路径，使用外置 VAE 文件覆盖模型内本身的"),
         }).description("训练用模型"),
 
         Schema.union([
@@ -195,10 +195,12 @@ Schema.intersect([
         full_fp16: Schema.boolean().description("完全使用 FP16 精度"),
         full_bf16: Schema.boolean().description("完全使用 BF16 精度 仅支持 SDXL"),
         xformers: Schema.boolean().default(true).description("启用 xformers"),
+        sdpa: Schema.boolean().description("启用 sdpa"),
         lowram: Schema.boolean().default(false).description("低内存模式 该模式下会将 U-net、文本编码器、VAE 直接加载到显存中"),
         cache_latents: Schema.boolean().default(true).description("缓存图像 latent"),
         cache_latents_to_disk: Schema.boolean().default(true).description("缓存图像 latent 到磁盘"),
         persistent_data_loader_workers: Schema.boolean().default(true).description("保留加载训练集的worker，减少每个 epoch 之间的停顿。"),
+        vae_batch_size: Schema.number().min(1).description("vae 编码批量大小"),
     }).description("速度优化选项"),
 
     Schema.object({

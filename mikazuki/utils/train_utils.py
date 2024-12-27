@@ -1,3 +1,4 @@
+from enum import Enum
 import glob
 import os
 import re
@@ -9,6 +10,16 @@ from mikazuki.log import log
 python_bin = sys.executable
 
 
+class ModelType(Enum):
+    UNKNOWN = -1
+    SD15 = 1
+    SD2 = 2
+    SDXL = 3
+    SD3 = 4
+    FLUX = 5
+    LoRA = 10
+
+
 def is_promopt_like(s):
     for p in ["--n", "--s", "--l", "--d"]:
         if p in s:
@@ -16,27 +27,61 @@ def is_promopt_like(s):
     return False
 
 
-def validate_model(model_name: str):
+def validate_model(model_name: str, training_type: str = "sd-lora"):
     if os.path.exists(model_name):
+        if os.path.isdir(model_name):
+            files = os.listdir(model_name)
+            if "model_index.json" in files or "unet" in model_name:
+                return True, "ok"
+            else:
+                log.warning("Can't find model, is this a huggingface model folder?")
+                return True, "ok"
         try:
             with open(model_name, "rb") as f:
-                content = f.read(1024 * 200)
-                if b"model.diffusion_model" in content or b"cond_stage_model.transformer.text_model" in content:
-                    return True, "ok"
+                content = f.read(1024 * 1000)
+                model_type = match_model_type(content)
 
-                if b"lora_unet" in content or b"lora_te" in content:
-                    return False, "pretrained model is not a Stable Diffusion checkpoint / 校验失败：底模不是 Stable Diffusion 模型"
+                if model_type == ModelType.UNKNOWN:
+                    log.error(f"Can't match model type from {model_name}")
+
+                if model_type not in [ModelType.SD15, ModelType.SD2, ModelType.SD3, ModelType.SDXL, ModelType.FLUX]:
+                    return False, "Pretrained model is not a Stable Diffusion or Flux checkpoint / 校验失败：底模不是 Stable Diffusion 或 Flux 模型"
+
+                if model_type == ModelType.SDXL and training_type == "sd-lora":
+                    return False, "Pretrained model is SDXL, but you are training with SD1.5 LoRA / 校验失败：你选择的是 SD1.5 LoRA 训练，但预训练模型是 SDXL。请前往专家模式选择正确的模型种类。"
+
         except Exception as e:
-            log.warn(f"model file {model_name} can't open: {e}")
+            log.warning(f"model file {model_name} can't open: {e}")
             return True, ""
 
         return True, "ok"
 
-    # huggerface model repo
-    if model_name.count("/") <= 1:
+    # huggingface model repo
+    if model_name.count("/") == 1 \
+            and not model_name[0] in [".", "/"] \
+            and not model_name.split(".")[-1] in ["pt", "pth", "ckpt", "safetensors"]:
         return True, "ok"
 
     return False, "model not found"
+
+
+def match_model_type(sig_content: bytes):
+    if b"model.diffusion_model.double_blocks" in sig_content or b"double_blocks.0.img_attn.norm.query_norm.scale" in sig_content:
+        return ModelType.FLUX
+
+    if b"model.diffusion_model.x_embedder.proj.weight" in sig_content:
+        return ModelType.SD3
+
+    if b"conditioner.embedders.1.model.transformer.resblocks" in sig_content:
+        return ModelType.SDXL
+
+    if b"model.diffusion_model" in sig_content or b"cond_stage_model.transformer.text_model" in sig_content:
+        return ModelType.SD15
+
+    if b"lora_unet" in sig_content or b"lora_te" in sig_content:
+        return ModelType.LoRA
+
+    return ModelType.UNKNOWN
 
 
 def validate_data_dir(path):
@@ -52,9 +97,13 @@ def validate_data_dir(path):
     subdirs = [f for f in dir_content if os.path.isdir(os.path.join(path, f))]
 
     if len(subdirs) == 0:
-        log.warn(f"No subdir found in data dir")
+        log.warning(f"No subdir found in data dir")
 
     ok_dir = [d for d in subdirs if re.findall(r"^\d+_.+", d)]
+
+    if len(ok_dir) > 0:
+        log.info(f"Found {len(ok_dir)} legal dataset")
+        return True
 
     if len(ok_dir) == 0:
         log.warning(f"No leagal dataset found. Try find avaliable images")
@@ -116,3 +165,10 @@ def get_total_images(path, recursive=True):
         image_files += glob.glob(path + '/*.jpeg')
         image_files += glob.glob(path + '/*.png')
     return image_files
+
+
+def fix_config_types(config: dict):
+    keep_float_params = ["guidance_scale", "sigmoid_scale", "discrete_flow_shift"]
+    for k in keep_float_params:
+        if k in config:
+            config[k] = float(config[k])
